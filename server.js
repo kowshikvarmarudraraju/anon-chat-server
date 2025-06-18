@@ -14,20 +14,20 @@ const io = new Server(server, {
   }
 });
 
-// Live user count tracker
+// ✅ Track only live, connected sockets
 const liveUsers = new Set();
 const pairs = new Map();
 let waiting = null;
 
 io.on('connection', (socket) => {
-  // ✅ Track new connection
   liveUsers.add(socket.id);
   io.emit('userCount', liveUsers.size);
 
-  // ✅ Matchmaking
+  // 🔁 Matchmaking
   if (waiting && waiting !== socket.id) {
     pairs.set(socket.id, waiting);
     pairs.set(waiting, socket.id);
+
     io.to(socket.id).emit('matched');
     io.to(waiting).emit('matched');
     waiting = null;
@@ -35,15 +35,7 @@ io.on('connection', (socket) => {
     waiting = socket.id;
   }
 
-  // ✅ Typing notification
-  socket.on('typing', () => {
-    const partner = pairs.get(socket.id);
-    if (partner) {
-      io.to(partner).emit('typing');
-    }
-  });
-
-  // ✅ Message relay
+  // 💬 Messages
   socket.on('message', (msg) => {
     const partner = pairs.get(socket.id);
     if (partner) {
@@ -51,7 +43,15 @@ io.on('connection', (socket) => {
     }
   });
 
-  // ✅ Disconnect cleanup
+  // ✍️ Typing status
+  socket.on('typing', () => {
+    const partner = pairs.get(socket.id);
+    if (partner) {
+      io.to(partner).emit('typing');
+    }
+  });
+
+  // ❌ On disconnect
   socket.on('disconnect', () => {
     liveUsers.delete(socket.id);
     io.emit('userCount', liveUsers.size);
@@ -63,15 +63,11 @@ io.on('connection', (socket) => {
     }
 
     pairs.delete(socket.id);
-
-    if (waiting === socket.id) {
-      waiting = null;
-    }
+    if (waiting === socket.id) waiting = null;
   });
 });
 
-// ✅ Start the server
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`✅ Server is running on port ${PORT}`);
+  console.log(`✅ Server running on port ${PORT}`);
 });
