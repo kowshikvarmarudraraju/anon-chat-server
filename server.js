@@ -14,50 +14,62 @@ const io = new Server(server, {
   }
 });
 
-let waitingQueue = [];
-let onlineCount = 0;
+let waiting = null;
+const users = new Set();
+const pairs = new Map();
 
 io.on('connection', (socket) => {
-  onlineCount++;
-  io.emit('userCount', onlineCount);
+  users.add(socket.id);
+  io.emit('userCount', users.size);
 
-  // Try to pair the socket
-  let partner = waitingQueue.shift();
-
-  if (partner && partner.connected) {
-    // Pair users
-    socket.partner = partner;
-    partner.partner = socket;
-    socket.emit('matched');
-    partner.emit('matched');
+  // Match user with someone else waiting
+  if (waiting && waiting !== socket.id) {
+    pairs.set(socket.id, waiting);
+    pairs.set(waiting, socket.id);
+    io.to(socket.id).emit('matched');
+    io.to(waiting).emit('matched');
+    waiting = null;
   } else {
-    // No one to match, put this socket in queue
-    waitingQueue.push(socket);
+    waiting = socket.id;
   }
 
-  // Message handler
+  // Relay messages to partner
   socket.on('message', (msg) => {
-    if (socket.partner) {
-      socket.partner.emit('message', msg);
+    const partner = pairs.get(socket.id);
+    if (partner) {
+      io.to(partner).emit('message', msg);
     }
   });
 
-  // Disconnect handler
-  socket.on('disconnect', () => {
-    onlineCount--;
-    io.emit('userCount', onlineCount);
+  // Relay typing notification
+  socket.on('typing', () => {
+    const partner = pairs.get(socket.id);
+    if (partner) {
+      io.to(partner).emit('typing');
+    }
+  });
 
-    // Notify partner
-    if (socket.partner) {
-      socket.partner.emit('partnerDisconnected');
-      socket.partner.partner = null;
+  // Handle disconnect
+  socket.on('disconnect', () => {
+    users.delete(socket.id);
+    io.emit('userCount', users.size);
+
+    const partner = pairs.get(socket.id);
+    if (partner) {
+      pairs.delete(partner);
+      io.to(partner).emit('partnerDisconnected');
     }
 
-    // Remove from queue if still in it
-    waitingQueue = waitingQueue.filter(s => s !== socket);
+    pairs.delete(socket.id);
+
+    if (waiting === socket.id) {
+      waiting = null;
+    }
   });
 });
 
-server.listen(3000, () => {
-  console.log('Server running on port 3000');
+// Start the server
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
