@@ -17,16 +17,8 @@ const io = new Server(server, {
 let waiting = null;
 const pairs = new Map();
 
-// ✅ Emit the true count of connected sockets
-function broadcastUserCount() {
-  const liveUserCount = io.sockets.sockets.size;
-  io.emit('userCount', liveUserCount);
-}
-
 io.on('connection', (socket) => {
-  broadcastUserCount(); // when user joins
-
-  // 🔁 Match with waiting stranger
+  // 🔁 Match with waiting user
   if (waiting && waiting !== socket.id) {
     pairs.set(socket.id, waiting);
     pairs.set(waiting, socket.id);
@@ -37,7 +29,7 @@ io.on('connection', (socket) => {
     waiting = socket.id;
   }
 
-  // 💬 Relay messages
+  // 💬 Forward message to partner
   socket.on('message', (msg) => {
     const partner = pairs.get(socket.id);
     if (partner) {
@@ -45,7 +37,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // ⌨️ Relay typing notification
+  // ⌨️ Forward typing status
   socket.on('typing', () => {
     const partner = pairs.get(socket.id);
     if (partner) {
@@ -55,8 +47,6 @@ io.on('connection', (socket) => {
 
   // ❌ On disconnect
   socket.on('disconnect', () => {
-    broadcastUserCount(); // when user leaves
-
     const partner = pairs.get(socket.id);
     if (partner) {
       pairs.delete(partner);
@@ -64,14 +54,13 @@ io.on('connection', (socket) => {
     }
 
     pairs.delete(socket.id);
-
     if (waiting === socket.id) {
       waiting = null;
     }
   });
 });
 
-// 🚀 Start server
+// 🚀 Start the server
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
