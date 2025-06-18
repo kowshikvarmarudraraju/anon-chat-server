@@ -14,15 +14,17 @@ const io = new Server(server, {
   }
 });
 
-let waiting = null;
+// Live user count tracker
+const liveUsers = new Set();
 const pairs = new Map();
-const liveUsers = new Set(); // ✅ Track real-time connections
+let waiting = null;
 
 io.on('connection', (socket) => {
-  liveUsers.add(socket.id); // ✅ Add on connect
-  io.emit('userCount', liveUsers.size); // ✅ Broadcast true count
+  // ✅ Track new connection
+  liveUsers.add(socket.id);
+  io.emit('userCount', liveUsers.size);
 
-  // Pairing logic
+  // ✅ Matchmaking
   if (waiting && waiting !== socket.id) {
     pairs.set(socket.id, waiting);
     pairs.set(waiting, socket.id);
@@ -33,15 +35,7 @@ io.on('connection', (socket) => {
     waiting = socket.id;
   }
 
-  // Message relay
-  socket.on('message', (msg) => {
-    const partner = pairs.get(socket.id);
-    if (partner) {
-      io.to(partner).emit('message', msg);
-    }
-  });
-
-  // Typing status
+  // ✅ Typing notification
   socket.on('typing', () => {
     const partner = pairs.get(socket.id);
     if (partner) {
@@ -49,10 +43,18 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Disconnect cleanup
+  // ✅ Message relay
+  socket.on('message', (msg) => {
+    const partner = pairs.get(socket.id);
+    if (partner) {
+      io.to(partner).emit('message', msg);
+    }
+  });
+
+  // ✅ Disconnect cleanup
   socket.on('disconnect', () => {
-    liveUsers.delete(socket.id); // ✅ Remove on disconnect
-    io.emit('userCount', liveUsers.size); // ✅ Send updated count
+    liveUsers.delete(socket.id);
+    io.emit('userCount', liveUsers.size);
 
     const partner = pairs.get(socket.id);
     if (partner) {
@@ -68,7 +70,8 @@ io.on('connection', (socket) => {
   });
 });
 
+// ✅ Start the server
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
+  console.log(`✅ Server is running on port ${PORT}`);
 });
