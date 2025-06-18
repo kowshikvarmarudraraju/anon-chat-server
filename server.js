@@ -17,23 +17,29 @@ const io = new Server(server, {
 let waiting = null;
 const pairs = new Map();
 
+// ✅ Function to emit live user count using built-in sockets map
 function broadcastUserCount() {
-  io.emit('userCount', io.sockets.sockets.size); // ✅ True live count
+  const liveCount = io.sockets.sockets.size;
+  io.emit('userCount', liveCount);
 }
 
 io.on('connection', (socket) => {
   broadcastUserCount();
 
+  // 👥 Pair with waiting user if exists
   if (waiting && waiting !== socket.id) {
     pairs.set(socket.id, waiting);
     pairs.set(waiting, socket.id);
+
     io.to(socket.id).emit('matched');
     io.to(waiting).emit('matched');
+
     waiting = null;
   } else {
     waiting = socket.id;
   }
 
+  // ✉️ Handle messages
   socket.on('message', (msg) => {
     const partner = pairs.get(socket.id);
     if (partner) {
@@ -41,6 +47,7 @@ io.on('connection', (socket) => {
     }
   });
 
+  // ⌨️ Handle typing
   socket.on('typing', () => {
     const partner = pairs.get(socket.id);
     if (partner) {
@@ -48,6 +55,7 @@ io.on('connection', (socket) => {
     }
   });
 
+  // ❌ Handle disconnect
   socket.on('disconnect', () => {
     broadcastUserCount();
 
@@ -65,6 +73,7 @@ io.on('connection', (socket) => {
   });
 });
 
+// 🚀 Start the server
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
@@ -88,23 +97,29 @@ const io = new Server(server, {
 let waiting = null;
 const pairs = new Map();
 
+// ✅ Function to emit live user count using built-in sockets map
 function broadcastUserCount() {
-  io.emit('userCount', io.sockets.sockets.size); // ✅ True live count
+  const liveCount = io.sockets.sockets.size;
+  io.emit('userCount', liveCount);
 }
 
 io.on('connection', (socket) => {
   broadcastUserCount();
 
+  // 👥 Pair with waiting user if exists
   if (waiting && waiting !== socket.id) {
     pairs.set(socket.id, waiting);
     pairs.set(waiting, socket.id);
+
     io.to(socket.id).emit('matched');
     io.to(waiting).emit('matched');
+
     waiting = null;
   } else {
     waiting = socket.id;
   }
 
+  // ✉️ Handle messages
   socket.on('message', (msg) => {
     const partner = pairs.get(socket.id);
     if (partner) {
@@ -112,6 +127,7 @@ io.on('connection', (socket) => {
     }
   });
 
+  // ⌨️ Handle typing
   socket.on('typing', () => {
     const partner = pairs.get(socket.id);
     if (partner) {
@@ -119,6 +135,7 @@ io.on('connection', (socket) => {
     }
   });
 
+  // ❌ Handle disconnect
   socket.on('disconnect', () => {
     broadcastUserCount();
 
@@ -136,6 +153,7 @@ io.on('connection', (socket) => {
   });
 });
 
+// 🚀 Start the server
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
